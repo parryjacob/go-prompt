@@ -16,19 +16,25 @@ import (
 	"github.com/fatih/color"
 )
 
+// Char* consts
 var (
-	CHR_RIGHT_ARROW   = "\ue0b0"
-	CHR_PLUS_MINUS    = "\u00b1"
-	CHR_GIT_BRANCH    = "\ue0a0"
-	CHR_GIT_DETATCHED = "\u27a6"
-	CHR_FAILURE       = "\u2718"
-	CHR_LIGHTNING     = "\u26a1"
-	CHR_COG           = "\u2699"
-	CHR_DOWN_ARROW    = "\u2193"
-	CHR_UP_ARROW      = "\u2191"
-	CHR_SUCCESS       = "\u2714"
+	CharRightArrow  = "\ue0b0"
+	CharPlusMinus   = "\u00b1"
+	CharGitBranch   = "\ue0a0"
+	CharGitDetached = "\u27a6"
+	CharFailure     = "\u2718"
+	CharLightning   = "\u26a1"
+	CharCog         = "\u2699"
+	CharDownArrow   = "\u2193"
+	CharUpArrow     = "\u2191"
+	CharSuccess     = "\u2714"
 )
 
+// DefaultBackgroundColour represents the Bash colour number
+// for the default background colour
+var DefaultBackgroundColour = 49
+
+// InfoBlock represents a single segment of the prompt
 type InfoBlock struct {
 	Foreground color.Attribute
 	Background color.Attribute
@@ -37,14 +43,18 @@ type InfoBlock struct {
 	Text       string
 }
 
+// Print prints the segment
 func (ib *InfoBlock) Print() {
-	c := color.New(ib.Foreground).Add(ib.Background)
-	if ib.Bold {
-		c.Add(color.Bold)
-	} else if ib.Underline {
-		c.Add(color.Underline)
+	printBashColor(int(ib.Foreground), int(ib.Background), ib.Bold)
+	fmt.Print(" " + ib.Text + " ")
+}
+
+func printBashColor(fg int, bg int, bold bool) {
+	s := 0
+	if bold {
+		s = 1
 	}
-	c.Print(" " + ib.Text + " ")
+	fmt.Print("\001\033[" + strconv.Itoa(s) + ";" + strconv.Itoa(fg) + ";" + strconv.Itoa(bg) + "m\002")
 }
 
 func makeBlock(fg color.Attribute, bg color.Attribute, text string) *InfoBlock {
@@ -61,14 +71,15 @@ func printBlockList(ls []*InfoBlock) {
 	for i, ib := range ls {
 		if i != 0 {
 			// Print the ending arrow of the previous one
-			tc := color.New(ib.Background).Add(ls[i-1].Background - 10)
-			tc.Print(CHR_RIGHT_ARROW)
+			printBashColor(int(ls[i-1].Background-10), int(ib.Background), false)
+			fmt.Print(CharRightArrow)
 		}
 		ib.Print()
 		if i == len(ls)-1 {
 			// Last item, print a final arrow
-			tc := color.New(ib.Background - 10)
-			tc.Print(CHR_RIGHT_ARROW)
+			// 49 = default BG colour
+			printBashColor(int(ib.Background-10), DefaultBackgroundColour, false)
+			fmt.Print(CharRightArrow)
 		}
 	}
 }
@@ -92,16 +103,14 @@ func makeRootBlock() *InfoBlock {
 	return nil
 }
 
-func makeOtherUserBlock(usr *user.User) *InfoBlock {
-	hostname, _ := os.Hostname()
-
-	block := makeBlock(color.FgHiYellow, color.BgBlack, usr.Username+"@"+hostname)
+func makeUserBlock(usr *user.User) *InfoBlock {
+	block := makeBlock(color.FgHiYellow, color.BgBlack, usr.Username)
 
 	uid, _ := strconv.Atoi(usr.Uid)
 
 	if uid == 0 {
 		// we are root
-		block.Text = CHR_LIGHTNING + " " + block.Text
+		block.Text = CharLightning + " " + block.Text
 	}
 
 	return block
@@ -153,15 +162,15 @@ func gitBlock() *InfoBlock {
 		}
 
 		if detached {
-			gitBlock.Text = CHR_GIT_DETATCHED + " " + head
+			gitBlock.Text = CharGitDetached + " " + head
 		} else {
-			gitBlock.Text = CHR_GIT_BRANCH + " " + head
+			gitBlock.Text = CharGitBranch + " " + head
 		}
 	}
 
 	// Change output if repo is dirty
 	if isDirty {
-		gitBlock.Text += CHR_PLUS_MINUS
+		gitBlock.Text += CharPlusMinus
 		gitBlock.Background = color.BgHiYellow
 	}
 
@@ -174,14 +183,14 @@ func gitBlock() *InfoBlock {
 
 		if diffp[0] != "+0" {
 			// more than 0 extra local commits
-			diffMessage = CHR_UP_ARROW + diffp[0][1:]
+			diffMessage = CharUpArrow + diffp[0][1:]
 		}
 		if diffp[1] != "-0" {
 			// more than 0 extra remote commits
 			if len(diffMessage) > 0 {
 				diffMessage += " "
 			}
-			diffMessage += CHR_DOWN_ARROW + diffp[1][1:]
+			diffMessage += CharDownArrow + diffp[1][1:]
 		}
 
 		if len(diffMessage) > 0 {
@@ -202,17 +211,15 @@ func main() {
 	if len(os.Args) > 1 {
 		code := os.Args[1]
 		if code != "0" {
-			list = append(list, makeBlock(color.FgHiBlack, color.BgHiRed, CHR_FAILURE+" "+code))
+			list = append(list, makeBlock(color.FgHiBlack, color.BgHiRed, CharFailure+" "+code))
 		} else {
-			list = append(list, makeBlock(color.FgHiBlack, color.BgHiGreen, CHR_SUCCESS))
+			list = append(list, makeBlock(color.FgHiBlack, color.BgHiGreen, CharSuccess))
 		}
 	}
 
 	// Add the block for a non-default user
 	currentUser, _ := user.Current()
-	if currentUser.Username != os.Getenv("DEFAULT_USER") {
-		list = append(list, makeOtherUserBlock(currentUser))
-	}
+	list = append(list, makeUserBlock(currentUser))
 
 	// Path to CWD block
 	cwdB := makeBlock(color.FgHiBlack, color.BgHiBlue, getCwd())
@@ -225,7 +232,7 @@ func main() {
 	}
 
 	// Print the list
-	fmt.Printf("\n\033[2K") // go to a new line and clear it for us
+	fmt.Printf("\n\001\033[2K\002") // go to a new line and clear it for us
 	printBlockList(list)
 
 	// Reset the colour and print the 'K' ANSI control code
@@ -233,8 +240,8 @@ func main() {
 	// K = clear from cursor to end
 	// 1K = clear from cursor to start of line
 	// 2K = clear entire line
-	spaceC := color.New(color.Reset)
-	spaceC.Printf(" \033[K")
+	//spaceC := color.New(color.Reset)
+	fmt.Print("\001\033[0m\002 \001\033[K\002")
 
 	//color.Unset() // Reset back for the command input
 }
