@@ -26,6 +26,7 @@ var (
 	CHR_COG           = "\u2699"
 	CHR_DOWN_ARROW    = "\u2193"
 	CHR_UP_ARROW      = "\u2191"
+	CHR_SUCCESS       = "\u2714"
 )
 
 type InfoBlock struct {
@@ -202,6 +203,8 @@ func main() {
 		code := os.Args[1]
 		if code != "0" {
 			list = append(list, makeBlock(color.FgHiBlack, color.BgHiRed, CHR_FAILURE+" "+code))
+		} else {
+			list = append(list, makeBlock(color.FgHiBlack, color.BgHiGreen, CHR_SUCCESS))
 		}
 	}
 
@@ -210,7 +213,6 @@ func main() {
 	if currentUser.Username != os.Getenv("DEFAULT_USER") {
 		list = append(list, makeOtherUserBlock(currentUser))
 	}
-	isRoot := currentUser.Uid == "0"
 
 	// Path to CWD block
 	cwdB := makeBlock(color.FgHiBlack, color.BgHiBlue, getCwd())
@@ -225,16 +227,6 @@ func main() {
 	// Print the list
 	fmt.Printf("\n\033[2K") // go to a new line and clear it for us
 	printBlockList(list)
-
-	// Cleanup after ourselves
-	endColour := color.BgHiGreen
-	if isRoot {
-		endColour = color.BgHiYellow
-	}
-	clearC := color.New(endColour).Add(endColour - 10)
-	clearC.Print("\n" + CHR_RIGHT_ARROW + CHR_RIGHT_ARROW)
-	endI := color.New(endColour - 10)
-	endI.Print(CHR_RIGHT_ARROW)
 
 	// Reset the colour and print the 'K' ANSI control code
 	// which is "Erase in Line".
