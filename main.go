@@ -205,16 +205,23 @@ func main() {
 	list := make([]*InfoBlock, 0)
 	color.NoColor = false // Force coloured output for PS1
 
+	useTwoLineLayout := os.Getenv("PS1_TWO_LINE") != ""
+
 	// Check for the last bash return code
 	// We pass this variable to this program from Bash as there
 	// is no convenient way to pass it otherwise
+	var returnCodeBlock *InfoBlock
 	if len(os.Args) > 1 {
 		code := os.Args[1]
 		if code != "0" {
-			list = append(list, makeBlock(color.FgHiBlack, color.BgHiRed, CharFailure+" "+code))
+			returnCodeBlock = makeBlock(color.FgHiBlack, color.BgHiRed, CharFailure+" "+code)
 		} else {
-			list = append(list, makeBlock(color.FgHiBlack, color.BgHiGreen, CharSuccess))
+			returnCodeBlock = makeBlock(color.FgHiBlack, color.BgHiGreen, CharSuccess)
 		}
+	}
+
+	if !useTwoLineLayout && returnCodeBlock != nil {
+		list = append(list, returnCodeBlock)
 	}
 
 	// Add the block for a non-default user
@@ -234,6 +241,18 @@ func main() {
 	// Print the list
 	fmt.Printf("\n\001\033[2K\002") // go to a new line and clear it for us
 	printBlockList(list)
+
+	if useTwoLineLayout {
+		if returnCodeBlock.Background == color.BgHiGreen && currentUser.Uid == "0" {
+			// We are root and successful, change bg to yellow
+			returnCodeBlock.Background = color.BgHiYellow
+		}
+
+		fmt.Print("\n")
+		returnCodeBlock.Print()
+		printBashColor(int(returnCodeBlock.Background-10), DefaultBackgroundColour, false)
+		fmt.Print(CharRightArrow)
+	}
 
 	// Reset the colour and print the 'K' ANSI control code
 	// which is "Erase in Line".
