@@ -219,9 +219,21 @@ func main() {
 			returnCodeBlock = makeBlock(color.FgHiBlack, color.BgHiGreen, CharSuccess)
 		}
 	}
+	var lastCommandTime *InfoBlock
+	if len(os.Args) > 2 {
+		timer, err := strconv.Atoi(os.Args[2])
+		if err == nil {
+			if timer > 0 {
+				lastCommandTime = makeBlock(color.FgHiWhite, color.BgBlack, os.Args[2]+"s")
+			}
+		}
+	}
 
 	if !useTwoLineLayout && returnCodeBlock != nil {
 		list = append(list, returnCodeBlock)
+		if lastCommandTime != nil {
+			list = append(list, lastCommandTime)
+		}
 	}
 
 	// Add the block for a non-default user
@@ -249,9 +261,15 @@ func main() {
 		}
 
 		fmt.Print("\n")
-		returnCodeBlock.Print()
-		printBashColor(int(returnCodeBlock.Background-10), DefaultBackgroundColour, false)
-		fmt.Print(CharRightArrow)
+
+		secondList := make([]*InfoBlock, 0)
+		secondList = append(secondList, returnCodeBlock)
+
+		if lastCommandTime != nil {
+			secondList = append(secondList, lastCommandTime)
+		}
+
+		printBlockList(secondList)
 	}
 
 	// Reset the colour and print the 'K' ANSI control code
